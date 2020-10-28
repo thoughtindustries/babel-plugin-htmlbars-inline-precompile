@@ -1,6 +1,7 @@
 var crypto = require('crypto');
+var precompile = require('./ember-template-compiler');
 
-module.exports = function(precompile, _options) {
+module.exports = function (_options) {
   var options = _options || {};
   var cacheKey = options.cacheKey;
 
@@ -14,8 +15,8 @@ module.exports = function(precompile, _options) {
   function htmlbarsInlineCompilerPlugin(babel) {
     var t = babel.types;
 
-    var replaceNodeWithPrecompiledTemplate = function(node, template) {
-      var compiledTemplateString = "Ember.HTMLBars.template(" + precompile(template) + ")";
+    var replaceNodeWithPrecompiledTemplate = function (node, template) {
+      var compiledTemplateString = 'Ember.Handlebars.template(' + precompile(template) + ')';
 
       // Prefer calling replaceWithSourceString if it is present.
       // this prevents a deprecation warning in Babel 5.6.7+.
@@ -26,19 +27,21 @@ module.exports = function(precompile, _options) {
       } else {
         return compiledTemplateString;
       }
-    }
-
+    };
 
     return new babel.Transformer('htmlbars-inline-precompile', {
-      ImportDeclaration: function(node, parent, scope, file) {
-        if (t.isLiteral(node.source, { value: "htmlbars-inline-precompile" })) {
+      ImportDeclaration: function (node, parent, scope, file) {
+        if (t.isLiteral(node.source, { value: 'htmlbars-inline-precompile' })) {
           var first = node.specifiers && node.specifiers[0];
           if (t.isImportDefaultSpecifier(first)) {
             file.importSpecifier = first.local.name;
           } else {
             var input = file.code;
             var usedImportStatement = input.slice(node.start, node.end);
-            var msg = "Only `import hbs from 'htmlbars-inline-precompile'` is supported. You used: `" + usedImportStatement + "`";
+            var msg =
+              "Only `import hbs from 'htmlbars-inline-precompile'` is supported. You used: `" +
+              usedImportStatement +
+              '`';
             throw file.errorWithNode(node, msg);
           }
 
@@ -54,15 +57,16 @@ module.exports = function(precompile, _options) {
         }
       },
 
-      CallExpression: function(node, parent, scope, file) {
+      CallExpression: function (node, parent, scope, file) {
         if (t.isIdentifier(node.callee, { name: file.importSpecifier })) {
-          var argumentErrorMsg = "hbs should be invoked with a single argument: the template string";
+          var argumentErrorMsg =
+            'hbs should be invoked with a single argument: the template string';
           if (node.arguments.length !== 1) {
             throw file.errorWithNode(node, argumentErrorMsg);
           }
 
           var template = node.arguments[0].value;
-          if (typeof template !== "string") {
+          if (typeof template !== 'string') {
             throw file.errorWithNode(node, argumentErrorMsg);
           }
 
@@ -70,19 +74,24 @@ module.exports = function(precompile, _options) {
         }
       },
 
-      TaggedTemplateExpression: function(node, parent, scope, file) {
+      TaggedTemplateExpression: function (node, parent, scope, file) {
         if (t.isIdentifier(node.tag, { name: file.importSpecifier })) {
           if (node.quasi.expressions.length) {
-            throw file.errorWithNode(node, "placeholders inside a tagged template string are not supported");
+            throw file.errorWithNode(
+              node,
+              'placeholders inside a tagged template string are not supported'
+            );
           }
 
-          var template = node.quasi.quasis.map(function(quasi) {
-            return quasi.value.cooked;
-          }).join("");
+          var template = node.quasi.quasis
+            .map(function (quasi) {
+              return quasi.value.cooked;
+            })
+            .join('');
 
           return replaceNodeWithPrecompiledTemplate(this, template);
         }
-      }
+      },
     });
   }
 
@@ -90,13 +99,13 @@ module.exports = function(precompile, _options) {
   // files and deps as part of the cache key (when deps or
   // implementation changes it will bust the cache for already
   // transpiled files)
-  htmlbarsInlineCompilerPlugin.baseDir = function() {
+  htmlbarsInlineCompilerPlugin.baseDir = function () {
     return __dirname;
   };
 
   // used by broccoli-babel-transpiler to bust the cache when
   // the template compiler being used changes
-  htmlbarsInlineCompilerPlugin.cacheKey = function() {
+  htmlbarsInlineCompilerPlugin.cacheKey = function () {
     return cacheKey;
   };
 
